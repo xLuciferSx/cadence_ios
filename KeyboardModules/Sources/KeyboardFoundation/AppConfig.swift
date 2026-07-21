@@ -17,7 +17,7 @@ public enum AppConfig {
   // so the extension can't read what you set in the app's Settings screen.
   // These constants are used as a fallback so the keyboard still works. Edit
   // them for your build. On a paid team, the App Group / Keychain values win.
-  public static let fallbackBackendURL = "https://poetic-forgiveness-production-4dd4.up.railway.app"
+  public static let fallbackBackendURL = "https://voice.handyapp.co.uk"
   public static let fallbackDeviceToken = "0b693d0ab74479cc33f86dfd69ae510df204e92dababec76"
   public static let fallbackLanguageCodes = ["EN", "RU", "LV"]
 
