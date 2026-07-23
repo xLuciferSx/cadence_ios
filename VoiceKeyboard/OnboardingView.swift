@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 struct OnboardingView: View {
@@ -99,6 +100,11 @@ private struct LoginView: View {
               return
             }
             store.signIn(email: email)
+            // Prime microphone permission here, in the app, at the end of setup.
+            // A keyboard extension can't present the mic prompt, so granting it
+            // now means the keyboard records in place — no bounce out to the app
+            // the first time the user taps the mic.
+            AVAudioApplication.requestRecordPermission { _ in }
             dismiss()
           }
           Text("This MVP stores your sign-in locally. Connect your account provider before release.")
