@@ -84,25 +84,27 @@ private extension UIInputViewController {
 
   func openContainingApp() {
     guard let url = URL(string: "cadence://settings") else { return }
-    // extensionContext is the supported way for an input extension to open its
-    // containing app. The responder-chain path remains as a compatibility
-    // fallback for older host combinations.
-    extensionContext?.open(url, completionHandler: { [weak self] opened in
-      guard !opened else { return }
-      self?.openViaResponderChain(url)
-    })
+    // For keyboard extensions, `extensionContext.open` is unreliable — it's
+    // really meant for share/action extensions and can report success without
+    // actually launching. The proven path is walking the responder chain to
+    // UIApplication's `openURL:`. Try that first, then fall back to
+    // extensionContext. Both require the keyboard's "Allow Full Access".
+    if openViaResponderChain(url) { return }
+    extensionContext?.open(url, completionHandler: nil)
   }
 
-  private func openViaResponderChain(_ url: URL) {
+  @discardableResult
+  private func openViaResponderChain(_ url: URL) -> Bool {
     let selector = #selector(openURL(_:))
-    var responder: UIResponder? = next
+    var responder: UIResponder? = next // skip self; self's openURL is the dummy below
     while let current = responder {
       if current.responds(to: selector) {
         current.perform(selector, with: url)
-        return
+        return true
       }
       responder = current.next
     }
+    return false
   }
 }
 
