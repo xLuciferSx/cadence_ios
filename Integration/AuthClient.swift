@@ -2,16 +2,26 @@ import Foundation
 import Dependencies
 import KeyboardFoundation
 
-/// Exchanges a provider (Google/Apple) token for Cadence app tokens, stores the
-/// session, and reads the account/entitlement from `/v1/me`. The provider UI
-/// (GoogleSignIn / Sign in with Apple) lives in the app; see INTEGRATION.md.
+/// Email/password sign-in (primary), plus optional Google/Apple, exchanged for
+/// Cadence app tokens. `config()` tells you which methods are enabled so the UI
+/// can show/hide the social buttons (feature switch). See INTEGRATION.md.
 public struct AuthClient: Sendable {
+  public var register: @Sendable (_ email: String, _ password: String, _ name: String?) async throws -> Session
+  public var signInWithEmail: @Sendable (_ email: String, _ password: String) async throws -> Session
   public var signInWithGoogle: @Sendable (_ idToken: String) async throws -> Session
   public var signInWithApple: @Sendable (_ identityToken: String, _ fullName: String?, _ email: String?) async throws -> Session
   public var refresh: @Sendable () async throws -> Session
   public var me: @Sendable () async throws -> Account
+  public var config: @Sendable () async throws -> AuthMethods
   public var signOut: @Sendable () async -> Void
   public var currentAccessToken: @Sendable () -> String?
+}
+
+/// Which sign-in methods the backend has enabled (GET /auth/config).
+public struct AuthMethods: Sendable, Equatable, Decodable {
+  public let password: Bool
+  public let google: Bool
+  public let apple: Bool
 }
 
 public struct Session: Sendable, Equatable {
@@ -58,6 +68,14 @@ public extension AuthClient {
     }
 
     return AuthClient(
+      register: { email, password, name in
+        var body: [String: Any] = ["email": email, "password": password]
+        if let name, !name.isEmpty { body["name"] = name }
+        return try await post("auth/register", body)
+      },
+      signInWithEmail: { email, password in
+        try await post("auth/login", ["email": email, "password": password])
+      },
       signInWithGoogle: { idToken in try await post("auth/google", ["idToken": idToken]) },
       signInWithApple: { token, name, email in
         var body: [String: Any] = ["identityToken": token]
@@ -76,6 +94,11 @@ public extension AuthClient {
         let (data, resp) = try await session.data(for: req)
         if let http = resp as? HTTPURLResponse, http.statusCode == 401 { throw AuthError.unauthorized }
         return try JSONDecoder().decode(Account.self, from: data)
+      },
+      config: {
+        guard let base = AppConfig.backendURL else { throw AuthError.notConfigured }
+        let (data, _) = try await session.data(from: base.appendingPathComponent("auth/config"))
+        return try JSONDecoder().decode(AuthMethods.self, from: data)
       },
       signOut: { store.clear() },
       currentAccessToken: { store.accessToken }
