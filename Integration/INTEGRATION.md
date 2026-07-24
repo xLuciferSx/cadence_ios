@@ -65,3 +65,23 @@ present, falling back to the device token. Refresh via `auth.refresh()` on 401.
   **Keychain** (`KeyboardFoundation/Keychain.swift`) for production.
 - Entitlement id is `pro` on both sides (RevenueCat + backend
   `REVENUECAT_ENTITLEMENT_PLANS`). Keep them in sync.
+
+## 8. Email/password (primary) + feature switch
+Email/password is the default sign-in. Google/Apple are behind backend feature
+switches (`AUTH_GOOGLE_ENABLED` / `AUTH_APPLE_ENABLED`, off by default) and are
+also surfaced to the client via `GET /auth/config`.
+
+```swift
+@Dependency(\.auth) var auth
+
+// Decide which buttons to show:
+let methods = try await auth.config()          // .password / .google / .apple
+// Render the email+password form when methods.password; show Google/Apple
+// buttons only when methods.google / methods.apple.
+
+// Create an account / sign in:
+let session = try await auth.register(email, password, name)   // POST /auth/register
+let session = try await auth.signInWithEmail(email, password)  // POST /auth/login
+```
+Keep the Google/Apple code paths compiled but hidden behind `methods.google` /
+`methods.apple`, so flipping the backend flags turns them on with no app update.
